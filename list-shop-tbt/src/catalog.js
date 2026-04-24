@@ -147,3 +147,95 @@ export const CATALOG = [
     ],
   },
 ]
+
+function normalizeCatalogText(value) {
+  return String(value ?? '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, ' ')
+}
+
+function getCatalogUnitType(unit) {
+  const normalizedUnit = normalizeCatalogText(unit)
+
+  if (normalizedUnit === 'fardo') {
+    return 'bundle'
+  }
+
+  if (normalizedUnit === 'cx') {
+    return 'box'
+  }
+
+  if (normalizedUnit === 'kg') {
+    return 'kg'
+  }
+
+  if (normalizedUnit === 'bisnaga') {
+    return 'tube'
+  }
+
+  if (normalizedUnit === 'duzia') {
+    return 'dozen'
+  }
+
+  return 'package'
+}
+
+const CATALOG_LOOKUP = new Map(
+  CATALOG.flatMap((category) =>
+    category.items.map((item) => [
+      normalizeCatalogText(item.name),
+      {
+        categoryTitle: category.title,
+        item,
+      },
+    ]),
+  ),
+)
+
+export function buildCatalogProductPayload(categoryTitle, item) {
+  return {
+    name: item.name,
+    unitType: getCatalogUnitType(item.unit),
+    catalogCategory: categoryTitle,
+  }
+}
+
+export function getCatalogMatchForProduct(product) {
+  return CATALOG_LOOKUP.get(normalizeCatalogText(product.name)) ?? null
+}
+
+export function getProductSectionTitle(product) {
+  return (
+    product.catalogCategory ||
+    getCatalogMatchForProduct(product)?.categoryTitle ||
+    'Outros itens'
+  )
+}
+
+export function groupProductsByCatalogSections(products) {
+  const groupedProducts = CATALOG.map((category) => ({
+    title: category.title,
+    products: [],
+  }))
+  const groupedByTitle = new Map(
+    groupedProducts.map((group) => [normalizeCatalogText(group.title), group]),
+  )
+  const otherGroup = {
+    title: 'Outros itens',
+    products: [],
+  }
+
+  products.forEach((product) => {
+    const sectionTitle = getProductSectionTitle(product)
+    const sectionKey = normalizeCatalogText(sectionTitle)
+    const group = groupedByTitle.get(sectionKey) ?? otherGroup
+
+    group.products.push(product)
+  })
+
+  return [...groupedProducts.filter((group) => group.products.length), otherGroup]
+    .filter((group) => group.products.length)
+}

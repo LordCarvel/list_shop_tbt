@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:v2": "vite build --base=/list_shop_tbt/v2/",
     "lint": "eslint .",
     "preview": "vite preview"
   },

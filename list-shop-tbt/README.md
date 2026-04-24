@@ -1,16 +1,43 @@
-# React + Vite
+# TBT Estoque
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Sistema front-end de estoque com autenticacao por base.
 
-Currently, two official plugins are available:
+## O que existe agora
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- cada dono cria a propria base
+- cada base tem seu proprio estoque, usuarios e pizzarias
+- o dono configura usuario e senha de cada pizzaria
+- o login da pizzaria acessa apenas a propria unidade
+- o dono acessa dashboard, central, filiais, ajustes, produtos e acessos
 
-## React Compiler
+## Regras de acesso
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- `dono`: acesso total da base
+- `loja`: acesso apenas ao fechamento e ao estoque da propria pizzaria
 
-## Expanding the ESLint configuration
+## Regras de estoque
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+- saldo nunca e editado direto
+- estoque = entradas + transferencias recebidas - transferencias enviadas + ajustes
+- fechamento diario trava a data da pizzaria
+- divergencia ate 2% = normal
+- divergencia acima de 2% = alerta
+- divergencia acima de 5% = observacao obrigatoria
+- peso salvo em `g`
+- liquido salvo em `ml`
+- itens salvos em `unidade`
+
+## Persistencia
+
+O sistema usa `localStorage` para guardar:
+
+- bases
+- usuarios
+- sessao atual
+- movimentos e fechamentos de cada base
+
+## Scripts
+
+- `npm run dev`
+- `npm run build`
+- `npm run lint`

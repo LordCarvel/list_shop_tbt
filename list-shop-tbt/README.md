@@ -29,12 +29,32 @@ Sistema front-end de estoque com autenticacao por base.
 
 ## Persistencia
 
-O sistema usa `localStorage` para guardar:
+O sistema sincroniza os dados com a API Spring Boot. O `localStorage` fica apenas como cache local e para guardar o token da sessao.
 
 - bases
 - usuarios
 - sessao atual
 - movimentos e fechamentos de cada base
+
+## Deploy
+
+Frontend no GitHub Pages:
+
+- crie `.env.production` com `VITE_API_URL=https://seu-backend.onrender.com`
+- rode `npm run build`
+- envie o conteudo de `dist/` para o GitHub Pages manualmente
+
+Backend no Render:
+
+- root directory: `listShopTbt/listShopTbt`
+- build: `chmod +x ./mvnw && ./mvnw -DskipTests package`
+- start: `java -jar target/listShopTbt-0.0.1-SNAPSHOT.jar`
+- configure as variaveis de `.env.render.example`
+
+Banco no Supabase:
+
+- use a connection string JDBC PostgreSQL com `sslmode=require`
+- exemplo: `jdbc:postgresql://host:6543/postgres?sslmode=require`
 
 ## Scripts
 

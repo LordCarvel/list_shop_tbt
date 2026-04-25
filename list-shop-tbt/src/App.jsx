@@ -8,7 +8,17 @@ import GuidedTour from './GuidedTour'
 import ProductsPage from './ProductsPage'
 import StoresPage from './StoresPage'
 import {
-  authenticate,
+  clearSessionToken,
+  createBaseWithApi,
+  fetchAdminReports,
+  fetchPublicState,
+  impersonateWithApi,
+  loginAdminWithApi,
+  loginWithApi,
+  saveStateAsAdminWithApi,
+  saveStateWithApi,
+} from './apiClient'
+import {
   canAccessPage,
   createBase,
   getAllowedPages,
@@ -578,6 +588,9 @@ function App() {
   )
   const [notice, setNotice] = useState(null)
   const [loginError, setLoginError] = useState('')
+  const [adminReports, setAdminReports] = useState(null)
+  const [adminError, setAdminError] = useState('')
+  const [isRemoteReady, setIsRemoteReady] = useState(false)
   const [tourCompletion, setTourCompletion] = useState(initialTourCompletion)
   const [tourRun, setTourRun] = useState(initialTourRun)
   const [tourIndex, setTourIndex] = useState(0)
@@ -658,6 +671,43 @@ function App() {
       return
     }
   }, [appState])
+
+  useEffect(() => {
+    let isMounted = true
+
+    fetchPublicState()
+      .then((data) => {
+        if (!isMounted) {
+          return
+        }
+
+        setAppState(data.state ?? createEmptyAppState())
+        setIsRemoteReady(true)
+      })
+      .catch(() => {
+        if (isMounted) {
+          setIsRemoteReady(true)
+        }
+      })
+
+    return () => {
+      isMounted = false
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!isRemoteReady || !appState.session) {
+      return undefined
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      saveStateWithApi(appState).catch((error) => {
+        setNotice(createNotice('error', error.message))
+      })
+    }, 450)
+
+    return () => window.clearTimeout(timeoutId)
+  }, [appState, isRemoteReady])
 
   useEffect(() => {
     try {
@@ -796,22 +846,18 @@ function App() {
     finishTourRun()
   }
 
-  function handleLogin(payload) {
-    const result = authenticate(appState, payload)
+  async function handleLogin(payload) {
+    let result
 
-    if (!result.ok) {
-      setLoginError(result.message)
-      return { ok: false, message: result.message }
+    try {
+      result = await loginWithApi(payload)
+    } catch (error) {
+      setLoginError(error.message)
+      return { ok: false, message: error.message }
     }
 
     setLoginError('')
-    setAppState((current) => ({
-      ...current,
-      session: {
-        baseId: result.base.id,
-        userId: result.user.id,
-      },
-    }))
+    setAppState(result.state ?? appState)
     setActivePage(getDefaultPageForUser(result.user))
     setNotice(
       createNotice(
@@ -838,7 +884,7 @@ function App() {
     return { ok: true }
   }
 
-  function handleCreateBase(payload) {
+  async function handleCreateBase(payload) {
     const validation = validateBasePayload(appState, payload)
 
     if (!validation.ok) {
@@ -849,9 +895,26 @@ function App() {
     const ownerUser = base.users[0]
 
     setLoginError('')
+    const nextState = {
+      ...appState,
+      bases: [...appState.bases, base],
+      session: {
+        baseId: base.id,
+        userId: ownerUser.id,
+      },
+    }
+
+    setAppState(nextState)
+
+    try {
+      await createBaseWithApi(nextState)
+    } catch (error) {
+      setLoginError(error.message)
+      return { ok: false, message: error.message }
+    }
+
     setAppState((current) => ({
       ...current,
-      bases: [...current.bases, base],
       session: {
         baseId: base.id,
         userId: ownerUser.id,
@@ -879,6 +942,7 @@ function App() {
   }
 
   function handleSignOut() {
+    clearSessionToken()
     setAppState((current) => ({
       ...current,
       session: null,
@@ -890,7 +954,39 @@ function App() {
     resetTour()
   }
 
-  function handleAdminCreateBase(payload) {
+  async function handleAdminLogin(payload) {
+    try {
+      const result = await loginAdminWithApi(payload)
+      setAppState(result.state ?? appState)
+      const reports = await fetchAdminReports()
+      setAdminReports(reports)
+      setAdminError('')
+      return { ok: true }
+    } catch (error) {
+      setAdminError(error.message)
+      return { ok: false, message: error.message }
+    }
+  }
+
+  async function refreshAdminReports() {
+    try {
+      const reports = await fetchAdminReports()
+      setAdminReports(reports)
+      setAdminError('')
+      return { ok: true }
+    } catch (error) {
+      setAdminError(error.message)
+      return { ok: false, message: error.message }
+    }
+  }
+
+  async function persistAdminState(nextState) {
+    const response = await saveStateAsAdminWithApi(nextState)
+    setAppState(response.state ?? nextState)
+    await refreshAdminReports()
+  }
+
+  async function handleAdminCreateBase(payload) {
     const baseName = String(payload.baseName ?? '').trim() || `Base teste ${appState.bases.length + 1}`
     const baseCode = getUniqueBaseCode(appState.bases, payload.baseCode || baseName)
     const ownerName = String(payload.ownerName ?? '').trim() || 'Admin'
@@ -909,7 +1005,75 @@ function App() {
 
     const base = createBase(validation.normalized)
 
-    setAppState((current) => ({
+    const nextState = {
+      ...appState,
+      bases: [...appState.bases, base],
+    }
+
+    setAppState(nextState)
+
+    try {
+      await persistAdminState(nextState)
+    } catch (error) {
+      return { ok: false, message: error.message }
+    }
+
+    setNotice(createNotice('success', `Base ${base.name} criada pelo painel admin.`))
+
+    return { ok: true, base }
+  }
+
+  async function handleAdminCreateStore(baseId, payload) {
+    const base = appState.bases.find((item) => item.id === baseId)
+
+    if (!base) {
+      return { ok: false, message: 'Escolha uma base valida.' }
+    }
+
+    const storeCount = base.units.filter((unit) => unit.type === 'store').length
+    const storeName =
+      String(payload.storeName ?? '').trim() || `Pizzaria teste ${storeCount + 1}`
+    const responsibleName =
+      String(payload.responsibleName ?? '').trim() || `Responsavel ${storeName}`
+    const username = getUniqueUsername(
+      base.users,
+      payload.username || storeName,
+    )
+    const validation = validateStoreAccessPayload(base, {
+      storeName,
+      responsibleName,
+      username,
+      password: ADMIN_DEFAULT_PASSWORD,
+    })
+
+    if (!validation.ok) {
+      return validation
+    }
+
+    const nextState = {
+      ...appState,
+      bases: appState.bases.map((currentBase) =>
+        currentBase.id === base.id
+          ? upsertStoreAccess(currentBase, validation.normalized)
+          : currentBase,
+      ),
+    }
+
+    setAppState(nextState)
+
+    try {
+      await persistAdminState(nextState)
+    } catch (error) {
+      return { ok: false, message: error.message }
+    }
+
+    setNotice(createNotice('success', `Pizzaria ${storeName} criada pelo painel admin.`))
+
+    return { ok: true }
+  }
+
+  /*
+  setAppState((current) => ({
       ...current,
       bases: [...current.bases, base],
     }))
@@ -957,23 +1121,22 @@ function App() {
 
     return { ok: true }
   }
+  */
 
-  function handleAdminEnter(baseId, userId) {
-    const base = appState.bases.find((item) => item.id === baseId)
-    const user = base?.users.find((item) => item.id === userId)
+  async function handleAdminEnter(baseId, userId) {
+    let result
 
-    if (!base || !user) {
-      return { ok: false, message: 'Acesso admin nao encontrado.' }
+    try {
+      result = await impersonateWithApi(baseId, userId)
+    } catch (error) {
+      return { ok: false, message: error.message }
     }
 
+    const base = result.base
+    const user = result.user
+
     setLoginError('')
-    setAppState((current) => ({
-      ...current,
-      session: {
-        baseId: base.id,
-        userId: user.id,
-      },
-    }))
+    setAppState(result.state ?? appState)
     setActivePage(getDefaultPageForUser(user))
     setNotice(
       createNotice(
@@ -1307,12 +1470,16 @@ function App() {
     if (!currentBase || !currentUser) {
       return (
         <AuthPage
+          adminError={adminError}
+          adminReports={adminReports}
           baseCount={appState.bases.length}
           bases={appState.bases}
           loginError={loginError}
           onAdminCreateBase={handleAdminCreateBase}
           onAdminCreateStore={handleAdminCreateStore}
           onAdminEnter={handleAdminEnter}
+          onAdminLogin={handleAdminLogin}
+          onRefreshAdminReports={refreshAdminReports}
           onCreateBase={handleCreateBase}
           onLogin={handleLogin}
           onResetLoginError={() => setLoginError('')}

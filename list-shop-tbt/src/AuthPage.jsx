@@ -50,14 +50,22 @@ function ModeChoiceCard({ description, label, mode, onClick }) {
 }
 
 function AdminPanel({
+  adminError,
+  adminReports,
   bases,
   onAdminCreateBase,
   onAdminCreateStore,
   onAdminEnter,
+  onAdminLogin,
+  onRefreshAdminReports,
   onBack,
 }) {
   const [adminBaseForm, setAdminBaseForm] = useState(emptyAdminBaseForm)
   const [adminStoreForm, setAdminStoreForm] = useState(emptyAdminStoreForm)
+  const [adminLoginForm, setAdminLoginForm] = useState({
+    username: 'admin',
+    password: '',
+  })
   const [baseError, setBaseError] = useState('')
   const [storeError, setStoreError] = useState('')
   const [accessError, setAccessError] = useState('')
@@ -79,10 +87,15 @@ function AdminPanel({
     }))
   }
 
-  function handleAdminBaseSubmit(event) {
+  async function handleAdminLoginSubmit(event) {
+    event.preventDefault()
+    await onAdminLogin(adminLoginForm)
+  }
+
+  async function handleAdminBaseSubmit(event) {
     event.preventDefault()
 
-    const result = onAdminCreateBase(adminBaseForm)
+    const result = await onAdminCreateBase(adminBaseForm)
 
     if (!result.ok) {
       setBaseError(result.message)
@@ -97,10 +110,10 @@ function AdminPanel({
     }))
   }
 
-  function handleAdminStoreSubmit(event) {
+  async function handleAdminStoreSubmit(event) {
     event.preventDefault()
 
-    const result = onAdminCreateStore(selectedBaseId, adminStoreForm)
+    const result = await onAdminCreateStore(selectedBaseId, adminStoreForm)
 
     if (!result.ok) {
       setStoreError(result.message)
@@ -116,8 +129,8 @@ function AdminPanel({
     }))
   }
 
-  function handleAdminEnter(baseId, userId) {
-    const result = onAdminEnter(baseId, userId)
+  async function handleAdminEnter(baseId, userId) {
+    const result = await onAdminEnter(baseId, userId)
 
     if (!result.ok) {
       setAccessError(result.message)
@@ -132,6 +145,98 @@ function AdminPanel({
         </button>
       </div>
 
+      {!adminReports ? (
+        <section className="admin-section">
+          <div className="panel-head">
+            <div>
+              <p className="panel-eyebrow">Seguranca</p>
+              <h3>Entrar no perfil admin</h3>
+            </div>
+          </div>
+
+          <form className="admin-form-grid" onSubmit={handleAdminLoginSubmit}>
+            <label className="field">
+              <span>Usuario admin</span>
+              <input
+                type="text"
+                value={adminLoginForm.username}
+                onChange={(event) =>
+                  setAdminLoginForm((current) => ({
+                    ...current,
+                    username: event.target.value,
+                  }))
+                }
+              />
+            </label>
+
+            <label className="field">
+              <span>Senha admin</span>
+              <input
+                type="password"
+                value={adminLoginForm.password}
+                onChange={(event) =>
+                  setAdminLoginForm((current) => ({
+                    ...current,
+                    password: event.target.value,
+                  }))
+                }
+              />
+            </label>
+
+            {adminError ? <p className="form-error field-span">{adminError}</p> : null}
+
+            <div className="form-actions align-start field-span">
+              <button type="submit" className="primary-button">
+                Liberar painel admin
+              </button>
+            </div>
+          </form>
+        </section>
+      ) : (
+        <section className="admin-section admin-report-section">
+          <div className="panel-head">
+            <div>
+              <p className="panel-eyebrow">Relatorios</p>
+              <h3>Fluxo do backend</h3>
+            </div>
+            <button type="button" className="secondary-button" onClick={onRefreshAdminReports}>
+              Atualizar
+            </button>
+          </div>
+
+          <div className="admin-report-grid">
+            {[
+              ['Bases', adminReports.flow?.bases ?? 0],
+              ['Produtos', adminReports.flow?.products ?? 0],
+              ['Pizzarias', adminReports.flow?.stores ?? 0],
+              ['Usuarios', adminReports.flow?.users ?? 0],
+              ['Movimentos', adminReports.flow?.movements ?? 0],
+              ['Fechamentos', adminReports.flow?.closings ?? 0],
+              ['Pedidos pendentes', adminReports.flow?.pendingRequests ?? 0],
+            ].map(([label, value]) => (
+              <article key={label} className="admin-report-card">
+                <span>{label}</span>
+                <strong>{value}</strong>
+              </article>
+            ))}
+          </div>
+
+          <div className="admin-log-list">
+            {(adminReports.logs ?? []).slice(0, 8).map((log) => (
+              <article key={log.id} className="admin-log-row">
+                <div>
+                  <strong>{log.action}</strong>
+                  <span>{log.actor || 'sistema'} | {log.status}</span>
+                </div>
+                <small>{new Date(log.createdAt).toLocaleString('pt-BR')}</small>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {adminReports ? (
+        <>
       <section className="admin-section">
         <div className="panel-head">
           <div>
@@ -266,7 +371,7 @@ function AdminPanel({
       <section className="admin-section">
         <div className="panel-head">
           <div>
-            <p className="panel-eyebrow">Entrar sem senha</p>
+            <p className="panel-eyebrow">Impersonar com admin</p>
             <h3>Bases cadastradas</h3>
           </div>
         </div>
@@ -350,17 +455,23 @@ function AdminPanel({
           <p className="empty-mini">Nenhuma base criada ainda.</p>
         )}
       </section>
+        </>
+      ) : null}
     </div>
   )
 }
 
 export default function AuthPage({
+  adminError,
+  adminReports,
   baseCount,
   bases = [],
   loginError,
   onAdminCreateBase,
   onAdminCreateStore,
   onAdminEnter,
+  onAdminLogin,
+  onRefreshAdminReports,
   onCreateBase,
   onLogin,
   onResetLoginError,
@@ -440,14 +551,14 @@ export default function AuthPage({
     })
   }
 
-  function handleLoginSubmit(event) {
+  async function handleLoginSubmit(event) {
     event.preventDefault()
-    onLogin(loginForm)
+    await onLogin(loginForm)
   }
 
-  function handleBaseSubmit(event) {
+  async function handleBaseSubmit(event) {
     event.preventDefault()
-    const result = onCreateBase(baseForm)
+    const result = await onCreateBase(baseForm)
 
     if (!result.ok) {
       setBaseError(result.message)
@@ -574,10 +685,14 @@ export default function AuthPage({
               </div>
             ) : resolvedAccessMode === 'admin' ? (
               <AdminPanel
+                adminError={adminError}
+                adminReports={adminReports}
                 bases={bases}
                 onAdminCreateBase={onAdminCreateBase}
                 onAdminCreateStore={onAdminCreateStore}
                 onAdminEnter={onAdminEnter}
+                onAdminLogin={onAdminLogin}
+                onRefreshAdminReports={onRefreshAdminReports}
                 onBack={() => {
                   setAccessMode(null)
                   setBaseError('')

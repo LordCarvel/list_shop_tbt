@@ -52,7 +52,7 @@ export const CATALOG = [
     title: 'Hortifruti',
     items: [
       { name: 'Tomates', unit: 'Kg' },
-      { name: 'Cebola (encomenda p/ Quinta)', unit: 'Kg' },
+      { name: 'Cebola (encomenda para Quinta)', unit: 'Kg' },
       { name: 'Morangos', unit: 'Cx' },
       { name: 'Bananas', unit: 'Kg' },
       { name: 'Ovos', unit: 'Dúzia' },
@@ -132,7 +132,7 @@ export const CATALOG = [
   },
   {
     title: 'Farinha',
-    items: [{ name: 'Pedidos p/ Quinta' }],
+    items: [{ name: 'Pedidos para Quinta' }],
   },
   {
     title: 'Irene',

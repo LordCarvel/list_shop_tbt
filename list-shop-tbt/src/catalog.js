@@ -29,7 +29,8 @@ export const CATALOG = [
       { name: 'Manjericão' },
       { name: 'Pimenta Calabresa' },
       { name: 'Palmito' },
-      { name: 'Milho / Ervilha' },
+      { name: 'Milho' },
+      { name: 'Ervilha' },
       { name: 'Atum' },
       { name: 'Leite Ninho' },
       { name: 'Abacaxi' },
@@ -79,8 +80,11 @@ export const CATALOG = [
   {
     title: 'Materiais de Escritório',
     items: [
-      { name: 'Bobinas / Bloquinhos' },
-      { name: 'Caneta / Canetão / Grampos' },
+      { name: 'Bobinas' },
+      { name: 'Bloquinhos' },
+      { name: 'Caneta' },
+      { name: 'Canetão' },
+      { name: 'Grampos' },
       { name: 'Etiquetas Lacres' },
       { name: 'Envelopes de Esfihas' },
     ],
@@ -95,7 +99,8 @@ export const CATALOG = [
       { name: 'Caixas 30 cm', unit: 'Pct' },
       { name: 'Caixas 25 cm', unit: 'Pct' },
       { name: 'Caixas 20 cm', unit: 'Pct' },
-      { name: 'Mesinhas / Galão de Água' },
+      { name: 'Mesinhas' },
+      { name: 'Galão de Água' },
     ],
   },
   {
@@ -135,7 +140,12 @@ export const CATALOG = [
   },
   {
     title: 'Açougue',
-    items: [{ name: 'Kit Carne / Cebola / Tomate / Limão' }],
+    items: [
+      { name: 'Carne' },
+      { name: 'Cebola', unit: 'Kg' },
+      { name: 'Tomate', unit: 'Kg' },
+      { name: 'Limão', unit: 'Kg' },
+    ],
   },
   {
     title: 'Sílvio Frios',
